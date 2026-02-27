@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS agents;
+
+DROP TABLE IF EXISTS global_config;
+
+DROP EXTENSION IF EXISTS "uuid-ossp";

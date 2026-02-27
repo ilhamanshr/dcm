@@ -1,0 +1,10 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "internal/repository/sqlc"
+    schema: "internal/database"
+    gen:
+      go:
+        package: "queries"
+        output_models_file_name: "entities.go"
+        out: "internal/repository/sqlc"

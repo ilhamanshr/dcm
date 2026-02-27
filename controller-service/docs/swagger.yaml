@@ -1,0 +1,130 @@
+basePath: /
+definitions:
+  request.RegisterAgentRequest:
+    properties:
+      name:
+        type: string
+    type: object
+  request.UpdateConfigRequest:
+    properties:
+      poll_interval:
+        type: integer
+      url:
+        type: string
+    type: object
+  response.ConfigResponse:
+    properties:
+      agent_id:
+        type: string
+      poll_interval:
+        type: integer
+      poll_url:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Central configuration management service
+  title: Distributed Config Controller API
+  version: "1.0"
+paths:
+  /config:
+    get:
+      consumes:
+      - application/json
+      description: Get config
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ConfigResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get config
+      tags:
+      - config
+    post:
+      consumes:
+      - application/json
+      description: Update config
+      parameters:
+      - description: Config update data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/request.UpdateConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update config
+      tags:
+      - config
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new agent with a name
+      parameters:
+      - description: Agent registration data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/request.RegisterAgentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.ConfigResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Registe agent
+      tags:
+      - agents
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: X-API-Key
+    type: apiKey
+swagger: "2.0"

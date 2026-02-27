@@ -1,0 +1,73 @@
+basePath: /
+definitions:
+  handler.WorkerConfig:
+    properties:
+      url:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Worker service for hitting configured URLs
+  title: Worker Service API
+  version: "1.0"
+paths:
+  /config:
+    post:
+      consumes:
+      - application/json
+      description: Set the URL the worker should hit
+      parameters:
+      - description: Worker config
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.WorkerConfig'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Update worker config
+      tags:
+      - config
+  /hit:
+    get:
+      description: Makes a GET request to the configured URL and returns the response
+        body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Hit the configured URL
+      tags:
+      - hit
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: X-API-Key
+    type: apiKey
+swagger: "2.0"
