@@ -37,7 +37,7 @@ func main() {
 	mux.Handle("/docs/", httpSwagger.WrapHandler)
 
 	slog.Info("Starting server at :" + cfg.AppPort)
-	if err := http.ListenAndServe(":"+cfg.AppPort, mux); err != nil {
+	if err := http.ListenAndServeTLS(":"+cfg.AppPort, cfg.TLSCertFile, cfg.TLSKeyFile, mux); err != nil {
 		slog.Error("ListenAndServe: ", slog.Any("error", err))
 		panic(err)
 	}

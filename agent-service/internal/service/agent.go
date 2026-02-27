@@ -4,6 +4,7 @@ import (
 	"agent-service/internal/repository"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ type AgentService struct {
 	cache           repository.ICache
 	agentID         string
 	poolingInterval int
+	httpClient      *http.Client
 }
 
 type configResponse struct {
@@ -35,11 +37,17 @@ type workerConfig struct {
 }
 
 func NewAgentService(controllerURL, workerURL, apiKey string, cache repository.ICache) IAgentService {
+	tlsCfg := &tls.Config{InsecureSkipVerify: true} // self-signed certs on internal network
+	httpClient := &http.Client{
+		Transport: &http.Transport{TLSClientConfig: tlsCfg},
+		Timeout:   30 * time.Second,
+	}
 	return &AgentService{
 		controllerURL: controllerURL,
 		workerURL:     workerURL,
 		apiKey:        apiKey,
 		cache:         cache,
+		httpClient:    httpClient,
 	}
 }
 
@@ -65,7 +73,7 @@ func (p *AgentService) RegisterAgent(ctx context.Context) error {
 	req.Header.Set("X-API-Key", p.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := p.httpClient.Do(req)
 	if err != nil {
 		slog.Error("RegisterAgent failed to do registration request:", slog.Any("error", err))
 		return err
@@ -152,7 +160,7 @@ func (p *AgentService) configCheck(ctx context.Context) error {
 
 	req.Header.Set("X-API-Key", p.apiKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := p.httpClient.Do(req)
 	if err != nil {
 		slog.Error("configCheck failed to do request", slog.Any("error", err))
 		return err
@@ -236,7 +244,7 @@ func (c *AgentService) sendConfig(cfg workerConfig) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-API-Key", c.apiKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		slog.Error("sendConfig Failed to send config", slog.Any("error", err))
 		return err

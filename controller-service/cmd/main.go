@@ -72,9 +72,9 @@ func main() {
 
 	mux.Handle("/docs/", httpSwagger.WrapHandler)
 
-	slog.Info("Starting server at :" + cfg.AppPort)
-	if err := http.ListenAndServe(":"+cfg.AppPort, mux); err != nil {
-		slog.Error("ListenAndServe: ", slog.Any("error", err))
+	slog.Info("Starting HTTPS server at :" + cfg.AppPort)
+	if err := http.ListenAndServeTLS(":"+cfg.AppPort, cfg.TLSCertFile, cfg.TLSKeyFile, mux); err != nil {
+		slog.Error("ListenAndServeTLS: ", slog.Any("error", err))
 		panic(err)
 	}
 }

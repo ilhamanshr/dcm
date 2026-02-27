@@ -11,6 +11,8 @@ type Config struct {
 	DBURL       string
 	APIKey      string
 	PollSeconds int
+	TLSCertFile string
+	TLSKeyFile  string
 }
 
 func Load() Config {
@@ -38,5 +40,7 @@ func Load() Config {
 		DBURL:       os.Getenv("DB_URL"),
 		APIKey:      os.Getenv("API_KEY"),
 		PollSeconds: pollSeconds,
+		TLSCertFile: os.Getenv("TLS_CERT_FILE"),
+		TLSKeyFile:  os.Getenv("TLS_KEY_FILE"),
 	}
 }

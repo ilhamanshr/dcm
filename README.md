@@ -9,6 +9,7 @@ A distributed configuration management system composed of three Go microservices
 - [Architecture](#architecture)
 - [Services Overview](#services-overview)
 - [Prerequisites](#prerequisites)
+- [TLS / HTTPS Setup](#tls--https-setup)
 - [Setup & Compile Instructions](#setup--compile-instructions)
   - [Option A – Docker Compose (Recommended)](#option-a--docker-compose-recommended)
   - [Option B – Run Locally](#option-b--run-locally)
@@ -52,6 +53,7 @@ A distributed configuration management system composed of three Go microservices
 | Docker & Docker Compose | v2 | For containerised setup |
 | PostgreSQL | 16 | Controller storage |
 | Redis | 7 | Agent config cache |
+| `openssl` | any | Generating TLS certificates |
 | `swag` CLI | latest | Only for re-generating Swagger docs |
 
 Install `swag` (if regenerating docs):
@@ -61,11 +63,40 @@ go install github.com/swaggo/swag/cmd/swag@latest
 
 ---
 
+## TLS / HTTPS Setup
+
+Both the **Controller** and **Worker** services serve traffic over **HTTPS** using TLS certificates. The **Agent** connects to both over HTTPS (using `InsecureSkipVerify` internally since the certs are self-signed).
+
+### Generate a self-signed certificate
+
+Run this once from the **project root**. The resulting files are used by both compose stacks.
+
+```bash
+mkdir -p cert
+openssl req -x509 -newkey rsa:4096 -keyout cert/private.key -out cert/certificate.pem \
+  -days 365 -nodes \
+  -subj "/CN=localhost" \
+  -addext "subjectAltName=DNS:localhost,DNS:controller,DNS:worker"
+```
+
+This creates:
+```
+cert/
+├── certificate.pem   # TLS certificate (public)
+└── private.key       # TLS private key (keep secret, already in .gitignore)
+```
+
+> **Note:** The `cert/` directory is volume-mounted into containers at `/cert`. Both compose files already include the correct mount (`../cert:/cert` relative to the `docker/` directory).
+
+---
+
 ## Setup & Compile Instructions
 
 ### Option A – Docker Compose (Recommended)
 
 The project ships with two compose files. Run them in order:
+
+> **Prerequisite:** Generate the TLS certificate first — see [TLS / HTTPS Setup](#tls--https-setup).
 
 #### Step 1: Start the Controller (+ its PostgreSQL database)
 
@@ -75,7 +106,7 @@ docker compose -f docker/controller-service-compose.yaml up --build
 
 This starts:
 - **PostgreSQL 16** on host port `5434`
-- **controller-service** on host port `8080` with auto DB migration on startup
+- **controller-service** on host port `8080` with auto DB migration on startup over **HTTPS**
 
 #### Step 2: Start the Agent + Worker (+ Redis)
 
@@ -85,10 +116,10 @@ docker compose -f docker/agent-worker-service-compose.yaml up --build
 
 This starts:
 - **Redis 7** on host port `6377`
-- **worker-service** on host port `8081`
-- **agent-service** (daemon; registers with controller then begins polling)
+- **worker-service** on host port `8081` over **HTTPS**
+- **agent-service** (daemon; registers with the controller over HTTPS then begins polling)
 
-> **Note:** The Agent compose file references `http://controller:8080` — make sure both compose stacks share a Docker network, or update `CONTROLLER_URL` to the host-accessible URL (e.g. `http://host.docker.internal:8080`).
+> **Note:** The Agent compose file references `https://controller:8080`. Both compose stacks must share a Docker network so that `controller` and `worker` hostnames resolve. If running them separately (not on the same network), update `CONTROLLER_URL` to the host-accessible URL (e.g. `https://host.docker.internal:8080`).
 
 ---
 
@@ -165,15 +196,19 @@ All services are configured via environment variables. Each directory contains a
 
 | Variable | Required | Example | Description |
 |---|---|---|---|
-| `APP_PORT` | ✅ | `8080` | HTTP server port |
+| `APP_PORT` | ✅ | `8080` | HTTPS server port |
 | `DB_URL` | ✅ | `postgres://postgres:postgres@localhost:5432/controller?sslmode=disable` | PostgreSQL connection string |
 | `API_KEY` | ✅ | `supersecret` | Shared secret for `X-API-Key` authentication |
+| `TLS_CERT_FILE` | ✅ | `/cert/certificate.pem` | Path to TLS certificate file |
+| `TLS_KEY_FILE` | ✅ | `/cert/private.key` | Path to TLS private key file |
 
 **`.env` example:**
 ```env
 APP_PORT=8080
 DB_URL=postgres://postgres:postgres@localhost:5432/controller?sslmode=disable
 API_KEY=supersecret
+TLS_CERT_FILE=./cert/certificate.pem
+TLS_KEY_FILE=./cert/private.key
 ```
 
 ---
@@ -182,13 +217,17 @@ API_KEY=supersecret
 
 | Variable | Required | Example | Description |
 |---|---|---|---|
-| `APP_PORT` | ✅ | `8081` | HTTP server port |
+| `APP_PORT` | ✅ | `8081` | HTTPS server port |
 | `API_KEY` | ✅ | `supersecret` | Shared secret for `X-API-Key` authentication |
+| `TLS_CERT_FILE` | ✅ | `/cert/certificate.pem` | Path to TLS certificate file |
+| `TLS_KEY_FILE` | ✅ | `/cert/private.key` | Path to TLS private key file |
 
 **`.env` example:**
 ```env
 APP_PORT=8081
 API_KEY=supersecret
+TLS_CERT_FILE=./cert/certificate.pem
+TLS_KEY_FILE=./cert/private.key
 ```
 
 ---
@@ -197,8 +236,8 @@ API_KEY=supersecret
 
 | Variable | Required | Example | Description |
 |---|---|---|---|
-| `CONTROLLER_URL` | ✅ | `http://localhost:8080` | Base URL of the Controller Service |
-| `WORKER_URL` | ✅ | `http://localhost:8081` | Base URL of the Worker Service |
+| `CONTROLLER_URL` | ✅ | `https://localhost:8080` | Base URL of the Controller Service |
+| `WORKER_URL` | ✅ | `https://localhost:8081` | Base URL of the Worker Service |
 | `API_KEY` | ✅ | `supersecret` | Shared secret (must match Controller + Worker) |
 | `REDIS_ADDR` | ✅ | `localhost:6379` | Redis host and port |
 | `REDIS_PASSWORD` | ❌ | _(empty)_ | Redis password (leave blank if none) |
@@ -206,8 +245,8 @@ API_KEY=supersecret
 
 **`.env` example:**
 ```env
-CONTROLLER_URL=http://localhost:8080
-WORKER_URL=http://localhost:8081
+CONTROLLER_URL=https://localhost:8080
+WORKER_URL=https://localhost:8081
 API_KEY=supersecret
 REDIS_ADDR=localhost:6379
 REDIS_PASSWORD=
@@ -215,6 +254,8 @@ REDIS_DB=0
 ```
 
 > ⚠️ **Security Note:** The same `API_KEY` value must be set in all three services. All service-to-service requests carry this key in the `X-API-Key` HTTP header.
+>
+> 🔒 **TLS Note:** The Agent uses `InsecureSkipVerify: true` when connecting to the Controller and Worker because they use self-signed certificates. Do **not** expose these services directly to the public internet without replacing self-signed certs with CA-signed ones.
 
 ---
 
@@ -224,14 +265,16 @@ Interactive Swagger UI is available at runtime:
 
 | Service | URL |
 |---|---|
-| Controller | http://localhost:8080/docs/ |
-| Worker | http://localhost:8081/docs/ |
+| Controller | https://localhost:8080/docs/ |
+| Worker | https://localhost:8081/docs/ |
+
+> When opening in a browser, you will see a certificate warning (self-signed cert). Proceed past the warning or import `cert/certificate.pem` into your browser/OS trust store to dismiss it.
 
 ---
 
 ### Controller Service API
 
-**Base URL:** `http://localhost:8080`  
+**Base URL:** `https://localhost:8080`  
 **Authentication:** All endpoints require `X-API-Key: <your-api-key>` header.
 
 ---
@@ -331,7 +374,7 @@ Updates the global configuration. All registered agents will detect this change 
 
 ### Worker Service API
 
-**Base URL:** `http://localhost:8081`  
+**Base URL:** `https://localhost:8081`  
 **Authentication:** All endpoints require `X-API-Key: <your-api-key>` header.
 
 ---
@@ -388,21 +431,24 @@ X-API-Key: <your-api-key>
 The middleware rejects any request without a matching key with `401 Unauthorized`. The same key value must be configured in the `API_KEY` environment variable for all three services.
 
 **Example with cURL:**
+
+> The `-k` flag skips TLS certificate verification for self-signed certs. Replace with `--cacert cert/certificate.pem` if you prefer to verify the cert explicitly.
+
 ```bash
 # Register an agent
-curl -X POST http://localhost:8080/register \
+curl -k -X POST https://localhost:8080/register \
   -H "X-API-Key: supersecret" \
   -H "Content-Type: application/json" \
   -d '{"name": "my-agent"}'
 
 # Update the global config
-curl -X POST http://localhost:8080/config \
+curl -k -X POST https://localhost:8080/config \
   -H "X-API-Key: supersecret" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com", "poll_interval": 10}'
 
 # Trigger a scrape manually
-curl -X GET http://localhost:8081/hit \
+curl -k -X GET https://localhost:8081/hit \
   -H "X-API-Key: supersecret"
 ```
 
