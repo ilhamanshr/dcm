@@ -8,6 +8,7 @@ A distributed configuration management system composed of three Go microservices
 
 - [Architecture](#architecture)
 - [Services Overview](#services-overview)
+- [Live Deployment](#live-deployment)
 - [Prerequisites](#prerequisites)
 - [TLS / HTTPS Setup](#tls--https-setup)
 - [Setup & Compile Instructions](#setup--compile-instructions)
@@ -42,6 +43,19 @@ A distributed configuration management system composed of three Go microservices
 | `controller-service` | `8080` | Go 1.24 | PostgreSQL | Config authority, agent registry |
 | `worker-service` | `8081` | Go 1.24 | In-memory | Executes HTTP scrape requests |
 | `agent-service` | — (daemon) | Go 1.24 | Redis | Bridges controller ↔ worker |
+
+---
+
+## Live Deployment
+
+The services are publicly accessible at:
+
+| Service | URL |
+|---|---|
+| Controller | https://34.124.203.179:5010 |
+| Worker | https://34.124.203.179:5011 |
+
+> Use `-k` with cURL (or bypass the browser certificate warning) as the server uses a self-signed certificate.
 
 ---
 
